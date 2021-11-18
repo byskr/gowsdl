@@ -340,6 +340,7 @@ type Client struct {
 	opts        *options
 	headers     []interface{}
 	attachments []MIMEMultipartAttachment
+	envelope    SOAPEnvelope
 }
 
 // HTTPClient is a client which can make HTTP requests
@@ -357,6 +358,9 @@ func NewClient(url string, opt ...Option) *Client {
 	return &Client{
 		url:  url,
 		opts: &opts,
+		envelope: SOAPEnvelope{
+			XmlNS: XmlNsSoapEnv,
+		},
 	}
 }
 
@@ -364,6 +368,12 @@ func NewClient(url string, opt ...Option) *Client {
 // For correct behavior, every header must contain a `XMLName` field.  Refer to #121 for details
 func (s *Client) AddHeader(header interface{}) {
 	s.headers = append(s.headers, header)
+}
+
+// SetCustomEnvelope set Namespace
+// For correct behavior, every header must contain a `XMLName` field.  Refer to #121 for details
+func (s *Client) SetCustomEnvelope(xmlNs string) {
+	s.envelope.XmlNS = xmlNs
 }
 
 // AddMIMEMultipartAttachment adds an attachment to the client that will be sent only if the
@@ -414,9 +424,7 @@ func (s *Client) CallWithFaultDetail(soapAction string, request, response interf
 func (s *Client) call(ctx context.Context, soapAction string, request, response interface{}, faultDetail FaultError,
 	retAttachments *[]MIMEMultipartAttachment) error {
 	// SOAP envelope capable of namespace prefixes
-	envelope := SOAPEnvelope{
-		XmlNS: XmlNsSoapEnv,
-	}
+	envelope := s.envelope
 
 	if s.headers != nil && len(s.headers) > 0 {
 		envelope.Header = &SOAPHeader{
@@ -514,7 +522,7 @@ func (s *Client) call(ctx context.Context, soapAction string, request, response 
 	}
 
 	var mmaBoundary string
-	if s.opts.mma{
+	if s.opts.mma {
 		mmaBoundary, err = getMmaHeader(res.Header.Get("Content-Type"))
 		if err != nil {
 			return err
